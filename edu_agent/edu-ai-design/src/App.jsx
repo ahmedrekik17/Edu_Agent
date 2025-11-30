@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import StudentDashboard from './views/StudentDashboard';
 import QuizView from './views/QuizView';
 import AITutor from './views/AITutor';
+import Assignments from './views/Assignments';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -17,6 +18,8 @@ function App() {
         return <QuizView />;
       case 'ai-tutor':
         return <AITutor />;
+      case 'assignments':
+        return <Assignments />;
       default:
         return <StudentDashboard />;
     }

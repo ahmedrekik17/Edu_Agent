@@ -11,6 +11,8 @@ import os
 import random
 import json
 import re
+import PyPDF2
+from io import BytesIO
 
 app = Flask(__name__)
 CORS(app)  # Allow React frontend to connect
@@ -111,13 +113,15 @@ def query_lm_studio(messages):
                 "temperature": 0.7,
                 "max_tokens": 2500
             },
-            timeout=60
+            timeout=120  # Increased timeout for PDF analysis
         )
         
         if response.status_code == 200:
             return response.json()['choices'][0]['message']['content']
         else:
             return f"Error from LM Studio: {response.status_code} - {response.text}"
+    except requests.exceptions.Timeout:
+        return "⏱️ Error: The AI model took too long to respond. Please try a smaller PDF or a faster model in LM Studio."
     except requests.exceptions.ConnectionError:
         return "❌ Cannot connect to LM Studio. Make sure it's running on port 1234."
     except Exception as e:
@@ -424,6 +428,80 @@ Continue for all {num_questions} questions. Put the correct answer in a RANDOM p
     
     print(f"✅ Returning {len(quiz_data)} questions to frontend")
     return jsonify(quiz_data)
+
+@app.route('/api/analyze_pdf', methods=['POST'])
+def analyze_pdf():
+    """
+    Analyze uploaded PDF and generate a summary/resume
+    """
+    try:
+        # Check if file is present
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({'error': 'File must be a PDF'}), 400
+        
+        print(f"📄 Analyzing PDF: {file.filename}")
+        
+        # Read PDF content
+        pdf_reader = PyPDF2.PdfReader(BytesIO(file.read()))
+        
+        # Extract text from all pages
+        text_content = ""
+        num_pages = len(pdf_reader.pages)
+        
+        for page_num, page in enumerate(pdf_reader.pages):
+            text_content += page.extract_text() + "\n"
+        
+        print(f"📖 Extracted {len(text_content)} characters from {num_pages} pages")
+        
+        # Truncate if too long (to avoid token limits)
+        max_chars = 8000
+        if len(text_content) > max_chars:
+            text_content = text_content[:max_chars] + "\n... [content truncated]"
+        
+        # Generate summary using AI
+        prompt = f"""Please analyze this PDF document and provide a comprehensive summary/resume. Include:
+
+1. **Main Topic/Subject**: What is this document about?
+2. **Key Points**: List the main ideas or concepts (3-5 bullet points)
+3. **Important Details**: Any crucial information, dates, names, or facts
+4. **Conclusion/Takeaway**: What should the reader remember?
+
+Document Content:
+{text_content}
+
+Please provide a well-structured, clear summary."""
+
+        messages = [
+            {"role": "system", "content": "You are an expert document analyzer. Provide clear, structured summaries of documents."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        # Get AI analysis
+        ai_summary = query_lm_studio(messages)
+        
+        print(f"✅ Generated summary for {file.filename}")
+        
+        return jsonify({
+            'success': True,
+            'filename': file.filename,
+            'num_pages': num_pages,
+            'summary': ai_summary,
+            'word_count': len(text_content.split())
+        })
+        
+    except Exception as e:
+        print(f"❌ Error analyzing PDF: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 
 if __name__ == '__main__':
     print("\n" + "="*60)
