@@ -1,0 +1,18 @@
+[
+  {
+    "id": "math_001",
+    "subject": "math",
+    "topic": "algebra",
+    "question": "Solve for x: 2x + 5 = 15",
+    "solution": "Subtract 5 from both sides: 2x = 10. Divide by 2: x = 5.",
+    "level": "beginner"
+  },
+  {
+    "id": "math_002",
+    "subject": "math",
+    "topic": "geometry",
+    "question": "Calculate the area of a circle with radius 3.",
+    "solution": "Area = pi * r^2. Area = 3.14 * 3^2 = 3.14 * 9 = 28.27.",
+    "level": "intermediate"
+  }
+]
